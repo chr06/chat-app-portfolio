@@ -23,6 +23,9 @@ docs/tickets/
 .claude/
 CLAUDE.md
 
+# Firebase
+.firebase/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

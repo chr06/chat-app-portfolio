@@ -2,6 +2,8 @@
 
 Vue 3 + Vite で構築した Slack 風チャットアプリケーションです。
 
+**デモ:** https://chat-app-portfolio-platform.web.app
+
 ## 推奨 IDE 設定
 
 [VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar)（Vetur は無効にしてください）
