@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 認証済みユーザーかどうか
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 承認済みユーザーかどうか
+    function isApproved() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    // ユーザーコレクション
+    match /users/{userId} {
+      // 読み取り: 認証済みユーザーは全ユーザーを読める
+      allow read: if isAuthenticated();
+
+      // 作成: 認証済みで自分のドキュメントのみ
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // 更新: 自分のドキュメントのみ（statusは変更不可）
+      allow update: if isAuthenticated() &&
+        request.auth.uid == userId &&
+        request.resource.data.status == resource.data.status;
+    }
+
+    // 会話コレクション
+    match /conversations/{conversationId} {
+      // 読み取り/作成/更新: 承認済みで参加者のみ
+      allow read: if isApproved() &&
+        request.auth.uid in resource.data.participants;
+
+      allow create: if isApproved() &&
+        request.auth.uid in request.resource.data.participants;
+
+      allow update: if isApproved() &&
+        request.auth.uid in resource.data.participants;
+
+      // メッセージサブコレクション
+      match /messages/{messageId} {
+        // 読み取り: 承認済みで親会話の参加者
+        allow read: if isApproved() &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+
+        // 作成: 承認済みで親会話の参加者かつ送信者が自分
+        allow create: if isApproved() &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants &&
+          request.resource.data.senderId == request.auth.uid;
+
+        // 更新: リアクションのみ更新可能
+        allow update: if isApproved() &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+      }
+    }
+  }
+}
