@@ -1,6 +1,6 @@
 # chat-app-portfolio
 
-Vue 3 + Vite で構築した Slack 風チャットアプリケーションです。
+Vue 3 + Vite で構築した チャットアプリケーションです。
 
 **デモ:** https://chat-app-portfolio-platform.web.app
 
