@@ -1,72 +1,72 @@
 # chat-app-portfolio
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue 3 + Vite で構築した Slack 風チャットアプリケーションです。
 
-## Recommended IDE Setup
+## 推奨 IDE 設定
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar)（Vetur は無効にしてください）
 
-## Recommended Browser Setup
+## 推奨ブラウザ設定
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
+- Chromium 系ブラウザ（Chrome, Edge, Brave など）:
   - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
+  - [Chrome DevTools でカスタムオブジェクトフォーマッターを有効にする](http://bit.ly/object-formatters)
 - Firefox:
   - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+  - [Firefox DevTools でカスタムオブジェクトフォーマッターを有効にする](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
 
-## Type Support for `.vue` Imports in TS
+## `.vue` インポートの TypeScript 型サポート
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+TypeScript はデフォルトで `.vue` インポートの型情報を扱えないため、型チェックには `tsc` の代わりに `vue-tsc` を使用しています。エディタでは [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) を導入することで、TypeScript の言語サービスが `.vue` の型を認識できるようになります。
 
-## Customize configuration
+## カスタム設定
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+[Vite 設定リファレンス](https://vite.dev/config/) を参照してください。
 
-## Project Setup
+## プロジェクトセットアップ
 
 ```sh
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+### 開発サーバーの起動（ホットリロード付き）
 
 ```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+### 本番用の型チェック・コンパイル・ミニファイ
 
 ```sh
 npm run build
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+### [Vitest](https://vitest.dev/) でユニットテストを実行
 
 ```sh
 npm run test:unit
 ```
 
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
+### [Playwright](https://playwright.dev) で E2E テストを実行
 
 ```sh
-# Install browsers for the first run
+# 初回実行時にブラウザをインストール
 npx playwright install
 
-# When testing on CI, must build the project first
+# CI でテストする場合は先にビルドが必要
 npm run build
 
-# Runs the end-to-end tests
+# E2E テストを実行
 npm run test:e2e
-# Runs the tests only on Chromium
+# Chromium のみでテストを実行
 npm run test:e2e -- --project=chromium
-# Runs the tests of a specific file
+# 特定のファイルのテストを実行
 npm run test:e2e -- tests/example.spec.ts
-# Runs the tests in debug mode
+# デバッグモードでテストを実行
 npm run test:e2e -- --debug
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+### [ESLint](https://eslint.org/) でリント
 
 ```sh
 npm run lint
