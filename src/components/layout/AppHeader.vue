@@ -8,6 +8,7 @@ import MdiIcon from '@/components/common/MdiIcon.vue'
 
 interface Emits {
   (e: 'toggle-sidebar'): void
+  (e: 'open-profile'): void
 }
 
 const emit = defineEmits<Emits>()
@@ -43,12 +44,19 @@ async function handleLogout() {
 
     <!-- ユーザー情報 -->
     <div class="flex items-center gap-3">
-      <Avatar
-        :src="userProfile?.photoURL"
-        :name="userProfile?.displayName"
-        size="sm"
-        :show-border="false"
-      />
+      <span class="text-sm">{{ userProfile?.displayName }}</span>
+      <button
+        class="rounded-full hover:ring-1 hover:ring-white p-0 leading-none flex"
+        aria-label="プロフィール編集"
+        @click="emit('open-profile')"
+      >
+        <Avatar
+          :src="userProfile?.photoURL"
+          :name="userProfile?.displayName"
+          size="sm"
+          :show-border="false"
+        />
+      </button>
 
       <!-- ログアウトボタン -->
       <button

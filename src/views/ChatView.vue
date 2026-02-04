@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { mdiChatProcessingOutline, mdiChevronLeft, mdiDotsVertical } from '@mdi/js'
+import { mdiChatProcessingOutline, mdiChevronLeft, mdiDotsVertical, mdiCheckCircleOutline } from '@mdi/js'
 import { useAuthStore } from '@/stores/auth'
 import { useConversations } from '@/composables/useConversations'
 import { useMessages } from '@/composables/useMessages'
@@ -13,6 +13,7 @@ import ConversationList from '@/components/chat/ConversationList.vue'
 import MessageList from '@/components/chat/MessageList.vue'
 import MessageInput from '@/components/chat/MessageInput.vue'
 import UserSearch from '@/components/user/UserSearch.vue'
+import UserProfile from '@/components/user/UserProfile.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Avatar from '@/components/common/Avatar.vue'
 import MdiIcon from '@/components/common/MdiIcon.vue'
@@ -27,6 +28,17 @@ const { userProfile } = storeToRefs(authStore)
 const isSidebarOpen = ref(false)
 const showUserSearch = ref(false)
 const showConversationMenu = ref(false)
+const showUserProfile = ref(false)
+const toastMessage = ref('')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string) {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastMessage.value = message
+  toastTimer = setTimeout(() => {
+    toastMessage.value = ''
+  }, 3000)
+}
 
 // 現在の会話ID
 const currentConversationId = computed(() => {
@@ -163,7 +175,7 @@ async function handleHideConversation() {
 <template>
   <div class="min-h-screen bg-gray-100">
     <!-- ヘッダー -->
-    <AppHeader @toggle-sidebar="toggleSidebar" />
+    <AppHeader @toggle-sidebar="toggleSidebar" @open-profile="showUserProfile = true" />
 
     <!-- サイドバー -->
     <Sidebar
@@ -278,5 +290,39 @@ async function handleHideConversation() {
 
     <!-- ユーザー検索モーダル -->
     <UserSearch v-if="showUserSearch" @close="handleCloseUserSearch" />
+
+    <!-- プロフィール編集モーダル -->
+    <UserProfile
+      v-if="showUserProfile"
+      @close="showUserProfile = false"
+      @saved="showToast"
+    />
+
+    <!-- トースト通知 -->
+    <Teleport to="body">
+      <Transition name="toast">
+        <div
+          v-if="toastMessage"
+          class="fixed bottom-4 left-4 z-50 px-4 py-3 bg-green-600 text-white text-sm rounded-lg shadow-lg flex items-center gap-2"
+        >
+          <MdiIcon :path="mdiCheckCircleOutline" :size="18" />
+          <span>{{ toastMessage }}</span>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.toast-enter-active {
+  transition: all 0.3s ease;
+}
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+</style>
