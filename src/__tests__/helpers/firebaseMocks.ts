@@ -1,10 +1,11 @@
 import { vi } from 'vitest'
+import type { Timestamp } from 'firebase/firestore'
 import type { User } from '@/types'
 
 /**
  * Firebase Timestamp モック
  */
-export function createMockTimestamp(date: Date = new Date()) {
+export function createMockTimestamp(date: Date = new Date()): Timestamp {
   return {
     toDate: () => date,
     toMillis: () => date.getTime(),
@@ -12,7 +13,8 @@ export function createMockTimestamp(date: Date = new Date()) {
     nanoseconds: 0,
     isEqual: (other: { seconds: number }) =>
       Math.floor(date.getTime() / 1000) === other.seconds,
-  }
+    toJSON: () => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0, type: 'timestamp' }),
+  } as unknown as Timestamp
 }
 
 /**
@@ -100,9 +102,9 @@ export function createMockOnSnapshot() {
   let errorCallback: ((error: Error) => void) | null = null
   const unsubscribe = vi.fn()
 
-  const mock = vi.fn((_query: unknown, onNext: unknown, onError?: unknown) => {
-    callback = onNext as (snapshot: unknown) => void
-    errorCallback = (onError as (error: Error) => void) || null
+  const mock = vi.fn((...args: unknown[]) => {
+    callback = args[1] as (snapshot: unknown) => void
+    errorCallback = (args[2] as (error: Error) => void) || null
     return unsubscribe
   })
 
