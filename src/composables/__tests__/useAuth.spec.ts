@@ -14,17 +14,17 @@ const mockSetDoc = vi.fn()
 const { mock: mockOnSnapshot, triggerSnapshot } = createMockOnSnapshot()
 
 vi.mock('firebase/auth', () => ({
-  onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
-  signInWithPopup: (...args: unknown[]) => mockSignInWithPopup(...args),
-  signOut: (...args: unknown[]) => mockSignOut(...args),
+  onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...(args as [])),
+  signInWithPopup: (...args: unknown[]) => mockSignInWithPopup(...(args as [])),
+  signOut: (...args: unknown[]) => mockSignOut(...(args as [])),
   GoogleAuthProvider: vi.fn(),
 }))
 
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(() => 'mock-doc-ref'),
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  setDoc: (...args: unknown[]) => mockSetDoc(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  getDoc: (...args: unknown[]) => mockGetDoc(...(args as [])),
+  setDoc: (...args: unknown[]) => mockSetDoc(...(args as [])),
+  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...(args as [])),
   serverTimestamp: vi.fn(() => 'mock-server-timestamp'),
 }))
 
@@ -153,7 +153,7 @@ describe('useAuth', () => {
     expect(mockSetDoc).toHaveBeenCalledOnce()
 
     // テストユーザーは auto-approved
-    const setDocCall = mockSetDoc.mock.calls[0]
+    const setDocCall = mockSetDoc.mock.calls[0]!
     expect(setDocCall[1]).toMatchObject({
       uid: 'test-uid-1',
       status: 'approved',
@@ -173,7 +173,7 @@ describe('useAuth', () => {
     await auth.signInWithGoogle()
 
     // merge: true で承認状態に更新
-    const setDocCall = mockSetDoc.mock.calls[0]
+    const setDocCall = mockSetDoc.mock.calls[0]!
     expect(setDocCall[1]).toMatchObject({
       status: 'approved',
       isTestUser: true,

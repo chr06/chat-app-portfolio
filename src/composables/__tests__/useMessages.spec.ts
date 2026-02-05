@@ -22,11 +22,11 @@ vi.mock('firebase/firestore', () => ({
   orderBy: vi.fn(),
   limit: vi.fn(),
   startAfter: vi.fn(),
-  getDocs: (...args: unknown[]) => mockGetDocs(...args),
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  addDoc: (...args: unknown[]) => mockAddDoc(...args),
-  updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  getDocs: (...args: unknown[]) => mockGetDocs(...(args as [])),
+  getDoc: (...args: unknown[]) => mockGetDoc(...(args as [])),
+  addDoc: (...args: unknown[]) => mockAddDoc(...(args as [])),
+  updateDoc: (...args: unknown[]) => mockUpdateDoc(...(args as [])),
+  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...(args as [])),
   serverTimestamp: vi.fn(() => 'mock-server-timestamp'),
   arrayUnion: vi.fn((val: string) => ({ type: 'arrayUnion', value: val })),
   arrayRemove: vi.fn((val: string) => ({ type: 'arrayRemove', value: val })),
@@ -91,8 +91,8 @@ describe('useMessages', () => {
 
       // 降順のスナップショットを昇順に反転
       expect(messages.value).toHaveLength(2)
-      expect(messages.value[0].id).toBe('msg-1')
-      expect(messages.value[1].id).toBe('msg-2')
+      expect(messages.value[0]!.id).toBe('msg-1')
+      expect(messages.value[1]!.id).toBe('msg-2')
     })
 
     it('hasMore が PAGE_SIZE 未満で false になる', async () => {
@@ -147,7 +147,7 @@ describe('useMessages', () => {
       expect(mockUpdateDoc).toHaveBeenCalledOnce()
 
       // addDoc の引数を確認
-      const addDocData = mockAddDoc.mock.calls[0][1]
+      const addDocData = mockAddDoc.mock.calls[0]![1]
       expect(addDocData).toMatchObject({
         senderId: 'current-uid',
         text: 'Hello!',
@@ -188,7 +188,7 @@ describe('useMessages', () => {
       await sendImageMessage('https://example.com/img.jpg', 'images/uid/file.jpg', 'caption')
 
       expect(mockAddDoc).toHaveBeenCalledOnce()
-      const addDocData = mockAddDoc.mock.calls[0][1]
+      const addDocData = mockAddDoc.mock.calls[0]![1]
       expect(addDocData).toMatchObject({
         senderId: 'current-uid',
         text: 'caption',
@@ -204,7 +204,7 @@ describe('useMessages', () => {
       const { sendImageMessage } = await loadUseMessages('conv-1')
       await sendImageMessage('https://example.com/img.jpg', 'images/uid/file.jpg')
 
-      const updateDocData = mockUpdateDoc.mock.calls[0][1]
+      const updateDocData = mockUpdateDoc.mock.calls[0]![1] as { lastMessage: { text: string } }
       expect(updateDocData.lastMessage.text).toBe('画像を送信しました')
     })
   })
@@ -241,7 +241,7 @@ describe('useMessages', () => {
       await loadMoreMessages()
 
       // 古いメッセージが先頭に追加される
-      expect(messages.value[0].id).toBe('old-msg-1')
+      expect(messages.value[0]!.id).toBe('old-msg-1')
     })
 
     it('hasMore が false の場合はロードしない', async () => {

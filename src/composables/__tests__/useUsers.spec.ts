@@ -84,8 +84,8 @@ describe('useUsers', () => {
       const result = await searchUsersByDisplayName('テスト')
 
       expect(result).toHaveLength(2)
-      expect(result[0].displayName).toBe('テストユーザー1')
-      expect(result[1].displayName).toBe('テストユーザー2')
+      expect(result[0]!.displayName).toBe('テストユーザー1')
+      expect(result[1]!.displayName).toBe('テストユーザー2')
     })
 
     it('エラー時は空配列を返す', async () => {
@@ -138,7 +138,7 @@ describe('useUsers', () => {
 
       // 自分(current-uid)と pending(user-3) は除外
       expect(result).toHaveLength(1)
-      expect(result[0].uid).toBe('user-2')
+      expect(result[0]!.uid).toBe('user-2')
     })
 
     it('isSearching が正しく切り替わる', async () => {

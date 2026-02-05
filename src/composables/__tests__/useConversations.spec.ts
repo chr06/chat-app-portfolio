@@ -20,11 +20,11 @@ vi.mock('firebase/firestore', () => ({
   query: vi.fn(() => 'mock-query'),
   where: vi.fn(),
   orderBy: vi.fn(),
-  getDocs: (...args: unknown[]) => mockGetDocs(...args),
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  addDoc: (...args: unknown[]) => mockAddDoc(...args),
-  updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  getDocs: (...args: unknown[]) => mockGetDocs(...(args as [])),
+  getDoc: (...args: unknown[]) => mockGetDoc(...(args as [])),
+  addDoc: (...args: unknown[]) => mockAddDoc(...(args as [])),
+  updateDoc: (...args: unknown[]) => mockUpdateDoc(...(args as [])),
+  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...(args as [])),
   serverTimestamp: vi.fn(() => 'mock-server-timestamp'),
   arrayUnion: vi.fn((val: string) => ({ type: 'arrayUnion', value: val })),
   arrayRemove: vi.fn((val: string) => ({ type: 'arrayRemove', value: val })),
@@ -48,11 +48,11 @@ describe('useConversations', () => {
       query: vi.fn(() => 'mock-query'),
       where: vi.fn(),
       orderBy: vi.fn(),
-      getDocs: (...args: unknown[]) => mockGetDocs(...args),
-      getDoc: (...args: unknown[]) => mockGetDoc(...args),
-      addDoc: (...args: unknown[]) => mockAddDoc(...args),
-      updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
-      onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+      getDocs: (...args: unknown[]) => mockGetDocs(...(args as [])),
+      getDoc: (...args: unknown[]) => mockGetDoc(...(args as [])),
+      addDoc: (...args: unknown[]) => mockAddDoc(...(args as [])),
+      updateDoc: (...args: unknown[]) => mockUpdateDoc(...(args as [])),
+      onSnapshot: (...args: unknown[]) => mockOnSnapshot(...(args as [])),
       serverTimestamp: vi.fn(() => 'mock-server-timestamp'),
       arrayUnion: vi.fn((val: string) => ({ type: 'arrayUnion', value: val })),
       arrayRemove: vi.fn((val: string) => ({ type: 'arrayRemove', value: val })),
@@ -108,7 +108,7 @@ describe('useConversations', () => {
       })
 
       expect(conversations.value).toHaveLength(1)
-      expect(conversations.value[0].id).toBe('conv-1')
+      expect(conversations.value[0]!.id).toBe('conv-1')
     })
   })
 
@@ -180,7 +180,7 @@ describe('useConversations', () => {
         updatedAt: now,
       }
 
-      const result = await createConversation(currentUser, otherUser)
+      const result = await createConversation(currentUser as unknown as import('@/types').User, otherUser as unknown as import('@/types').User)
 
       expect(result).toBe('new-conv-id')
       expect(mockAddDoc).toHaveBeenCalledOnce()
@@ -210,7 +210,7 @@ describe('useConversations', () => {
         updatedAt: now,
       }
 
-      await createConversation(currentUser, testUser)
+      await createConversation(currentUser as unknown as import('@/types').User, testUser as unknown as import('@/types').User)
 
       // 会話作成 + メッセージ追加 = 2回の addDoc
       expect(mockAddDoc).toHaveBeenCalledTimes(2)
@@ -233,7 +233,7 @@ describe('useConversations', () => {
         lastMessage: null,
         createdAt: createMockTimestamp(),
         updatedAt: createMockTimestamp(),
-      } as Conversation
+      } as unknown as Conversation
 
       const result = getOtherParticipant(conversation, 'current-uid')
 
@@ -255,7 +255,7 @@ describe('useConversations', () => {
         lastMessage: null,
         createdAt: createMockTimestamp(),
         updatedAt: createMockTimestamp(),
-      } as Conversation
+      } as unknown as Conversation
 
       const result = getOtherParticipant(conversation, 'current-uid')
 
