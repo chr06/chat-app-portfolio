@@ -21,13 +21,20 @@ const otherParticipant = computed((): ParticipantDetail | null => {
   return props.conversation.participantDetails[otherUserId] || null
 })
 
+// HTMLタグを除去する
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '')
+}
+
 const lastMessagePreview = computed(() => {
   const lastMessage = props.conversation.lastMessage
   if (!lastMessage) return 'メッセージがありません'
 
   const prefix =
     lastMessage.senderId === props.currentUserId ? 'あなた: ' : ''
-  const text = lastMessage.text || '画像を送信しました'
+  const rawText = lastMessage.text || '画像を送信しました'
+  // HTMLタグを除去してプレーンテキストにする
+  const text = stripHtmlTags(rawText)
 
   return prefix + (text.length > 30 ? text.slice(0, 30) + '...' : text)
 })
