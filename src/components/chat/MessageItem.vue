@@ -84,7 +84,9 @@ const formattedTime = computed(() => {
 
 const sanitizedHtml = computed(() => {
   if (!props.message.text) return ''
-  return DOMPurify.sanitize(props.message.text, {
+  // 改行文字を <br> に変換してから sanitize
+  const textWithBreaks = props.message.text.replace(/\n/g, '<br>')
+  return DOMPurify.sanitize(textWithBreaks, {
     ALLOWED_TAGS: [
       'p',
       'br',
