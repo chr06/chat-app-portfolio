@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   addDoc,
   getDocs,
@@ -105,6 +106,35 @@ export function useConversations() {
   }
 
   /**
+   * テストユーザーからウェルカムメッセージを送信
+   */
+  async function addWelcomeMessage(
+    conversationId: string,
+    testUser: User
+  ): Promise<void> {
+    const messageData = {
+      senderId: testUser.uid,
+      text: WELCOME_MESSAGE,
+      reactions: {},
+      createdAt: serverTimestamp(),
+    }
+
+    await addDoc(
+      collection(db, 'conversations', conversationId, 'messages'),
+      messageData
+    )
+
+    await updateDoc(doc(db, 'conversations', conversationId), {
+      lastMessage: {
+        text: WELCOME_MESSAGE,
+        senderId: testUser.uid,
+        createdAt: serverTimestamp(),
+      },
+      updatedAt: serverTimestamp(),
+    })
+  }
+
+  /**
    * 新規会話を作成
    */
   async function createConversation(
@@ -137,27 +167,7 @@ export function useConversations() {
 
     // テストユーザーとの会話の場合、ウェルカムメッセージを追加
     if (otherUser.isTestUser) {
-      const messageData = {
-        senderId: otherUser.uid,
-        text: WELCOME_MESSAGE,
-        reactions: {},
-        createdAt: serverTimestamp(),
-      }
-
-      await addDoc(
-        collection(db, 'conversations', docRef.id, 'messages'),
-        messageData
-      )
-
-      // 会話の lastMessage を更新
-      await updateDoc(doc(db, 'conversations', docRef.id), {
-        lastMessage: {
-          text: WELCOME_MESSAGE,
-          senderId: otherUser.uid,
-          createdAt: serverTimestamp(),
-        },
-        updatedAt: serverTimestamp(),
-      })
+      await addWelcomeMessage(docRef.id, otherUser)
     }
 
     return docRef.id
@@ -176,6 +186,14 @@ export function useConversations() {
       // 非表示になっている場合は解除
       if (existing.hiddenBy?.includes(currentUser.uid)) {
         await unhideConversation(existing.id)
+      }
+      // メッセージが実際に存在しない場合、テストユーザーからウェルカムメッセージを送信
+      if (otherUser.isTestUser) {
+        const messagesRef = collection(db, 'conversations', existing.id, 'messages')
+        const messagesSnapshot = await getDocs(query(messagesRef, limit(1)))
+        if (messagesSnapshot.empty) {
+          await addWelcomeMessage(existing.id, otherUser)
+        }
       }
       return existing.id
     }

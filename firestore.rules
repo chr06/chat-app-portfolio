@@ -46,10 +46,11 @@ service cloud.firestore {
         allow read: if isApproved() &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
 
-        // 作成: 承認済みで親会話の参加者かつ送信者が自分
+        // 作成: 承認済みで親会話の参加者かつ送信者が会話の参加者
+        // （ウェルカムメッセージではテストユーザーのsenderIdで作成するため）
         allow create: if isApproved() &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants &&
-          request.resource.data.senderId == request.auth.uid;
+          request.resource.data.senderId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
 
         // 更新: リアクションのみ更新可能
         allow update: if isApproved() &&

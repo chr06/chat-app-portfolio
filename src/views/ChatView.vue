@@ -189,7 +189,7 @@ async function handleHideConversation() {
     </Sidebar>
 
     <!-- メインコンテンツ -->
-    <main class="pt-14 lg:pl-64 min-h-screen">
+    <main class="pt-14 lg:pl-72 min-h-screen">
       <div class="h-[calc(100vh-3.5rem)] flex flex-col bg-white">
         <!-- 会話が選択されていない場合 -->
         <div
