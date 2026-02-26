@@ -88,7 +88,6 @@ export function createMockUserProfile(overrides: Partial<User> = {}): User {
     displayName: overrides.displayName ?? 'テストユーザー1',
     photoURL: overrides.photoURL ?? 'https://example.com/photo.jpg',
     status: overrides.status ?? 'approved',
-    isTestUser: overrides.isTestUser ?? true,
     createdAt: overrides.createdAt ?? createMockTimestamp(now),
     updatedAt: overrides.updatedAt ?? createMockTimestamp(now),
   } as User

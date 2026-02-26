@@ -1,14 +1,5 @@
 import { ref, readonly } from 'vue'
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  getDoc,
-  doc,
-  limit,
-} from 'firebase/firestore'
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
 import { db, auth } from '@/firebase/config'
 import type { User } from '@/types'
 
@@ -34,7 +25,7 @@ export function useUsers() {
 
       const searchTerm = name.trim().toLowerCase()
       const filtered = allTestUsers.filter((user) =>
-        user.displayName.toLowerCase().includes(searchTerm)
+        user.displayName.toLowerCase().includes(searchTerm),
       )
 
       return filtered
@@ -60,29 +51,19 @@ export function useUsers() {
       const usersRef = collection(db, 'users')
       // isTestUserのみでクエリし、残りはクライアント側でフィルタ
       // （複合インデックスなしで動作させるため）
-      const q = query(
-        usersRef,
-        where('isTestUser', '==', true)
-      )
+      const q = query(usersRef, where('isTestUser', '==', true))
 
-      console.log('[useUsers] クエリ実行中...')
       const snapshot = await getDocs(q)
-      console.log('[useUsers] 取得件数:', snapshot.docs.length)
 
       const allUsers = snapshot.docs.map((doc) => {
         const data = doc.data()
-        console.log('[useUsers] ユーザー:', doc.id, data)
         return { uid: doc.id, ...data } as User
       })
 
       const users = allUsers
-        .filter((user) =>
-          user.status === 'approved' &&
-          user.uid !== auth.currentUser?.uid
-        )
+        .filter((user) => user.status === 'approved' && user.uid !== auth.currentUser?.uid)
         .sort((a, b) => a.displayName.localeCompare(b.displayName, 'ja'))
 
-      console.log('[useUsers] フィルタ後:', users.length, '件')
       return users
     } catch (e) {
       searchError.value = e as Error
