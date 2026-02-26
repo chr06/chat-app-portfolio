@@ -11,7 +11,7 @@ export interface User {
   displayName: string
   photoURL: string
   status: UserStatus
-  isTestUser?: boolean
+  isTestUser?: boolean // シードされたテストユーザーかどうか
   createdAt: Timestamp
   updatedAt: Timestamp
 }

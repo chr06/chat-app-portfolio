@@ -33,10 +33,6 @@ vi.mock('@/firebase/config', () => ({
   db: {},
 }))
 
-vi.mock('@/config/testUsers', () => ({
-  isTestUser: vi.fn((email: string) => email === 'test1@example.com'),
-}))
-
 describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -84,10 +80,9 @@ describe('useAuth', () => {
   it('プロフィールスナップショットが存在する場合、userProfile を更新する', async () => {
     const mockUser = createMockFirebaseUser()
     const profileData = {
-      displayName: 'テストユーザー1',
+      displayName: 'テストユーザー',
       photoURL: 'https://example.com/photo.jpg',
       status: 'approved',
-      isTestUser: true,
     }
 
     mockOnAuthStateChanged.mockImplementation((_authInstance: unknown, callback: Function) => {
@@ -140,8 +135,8 @@ describe('useAuth', () => {
     expect(auth.isLoading.value).toBe(false)
   })
 
-  it('signInWithGoogle が新規ユーザードキュメントを作成する', async () => {
-    const mockUser = createMockFirebaseUser({ email: 'test1@example.com' })
+  it('signInWithGoogle が新規ユーザードキュメントを作成する（承認待ち状態）', async () => {
+    const mockUser = createMockFirebaseUser({ email: 'user@example.com' })
     mockSignInWithPopup.mockResolvedValue({ user: mockUser })
     mockGetDoc.mockResolvedValue(createMockDocumentSnapshot('test-uid-1', null))
     mockSetDoc.mockResolvedValue(undefined)
@@ -152,33 +147,26 @@ describe('useAuth', () => {
     expect(mockSignInWithPopup).toHaveBeenCalledOnce()
     expect(mockSetDoc).toHaveBeenCalledOnce()
 
-    // テストユーザーは auto-approved
+    // 新規ユーザーは承認待ち状態で作成される
     const setDocCall = mockSetDoc.mock.calls[0]!
     expect(setDocCall[1]).toMatchObject({
       uid: 'test-uid-1',
-      status: 'approved',
-      isTestUser: true,
+      status: 'pending',
     })
   })
 
-  it('signInWithGoogle が既存テストユーザーを承認する', async () => {
-    const mockUser = createMockFirebaseUser({ email: 'test1@example.com' })
+  it('signInWithGoogle が既存ユーザーの場合はドキュメントを作成しない', async () => {
+    const mockUser = createMockFirebaseUser({ email: 'user@example.com' })
     mockSignInWithPopup.mockResolvedValue({ user: mockUser })
     mockGetDoc.mockResolvedValue(
-      createMockDocumentSnapshot('test-uid-1', { status: 'pending' }),
+      createMockDocumentSnapshot('test-uid-1', { status: 'approved' })
     )
-    mockSetDoc.mockResolvedValue(undefined)
 
     const auth = await loadUseAuth()
     await auth.signInWithGoogle()
 
-    // merge: true で承認状態に更新
-    const setDocCall = mockSetDoc.mock.calls[0]!
-    expect(setDocCall[1]).toMatchObject({
-      status: 'approved',
-      isTestUser: true,
-    })
-    expect(setDocCall[2]).toEqual({ merge: true })
+    expect(mockSignInWithPopup).toHaveBeenCalledOnce()
+    expect(mockSetDoc).not.toHaveBeenCalled()
   })
 
   it('signInWithGoogle がエラーを投げた場合、error を設定する', async () => {
@@ -212,16 +200,12 @@ describe('useAuth', () => {
     auth.init()
 
     // pending 状態
-    triggerSnapshot(
-      createMockDocumentSnapshot('test-uid-1', { status: 'pending' }),
-    )
+    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'pending' }))
     expect(auth.isPending.value).toBe(true)
     expect(auth.isApproved.value).toBe(false)
 
     // approved 状態
-    triggerSnapshot(
-      createMockDocumentSnapshot('test-uid-1', { status: 'approved' }),
-    )
+    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'approved' }))
     expect(auth.isPending.value).toBe(false)
     expect(auth.isApproved.value).toBe(true)
   })

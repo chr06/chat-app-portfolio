@@ -6,15 +6,8 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser,
 } from 'firebase/auth'
-import {
-  doc,
-  getDoc,
-  setDoc,
-  onSnapshot,
-  serverTimestamp,
-} from 'firebase/firestore'
+import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '@/firebase/config'
-import { isTestUser } from '@/config/testUsers'
 import type { User } from '@/types'
 
 export function useAuth() {
@@ -57,7 +50,7 @@ export function useAuth() {
           (err) => {
             error.value = err
             isLoading.value = false
-          }
+          },
         )
       } else {
         userProfile.value = null
@@ -75,31 +68,15 @@ export function useAuth() {
       const userRef = doc(db, 'users', result.user.uid)
       const userDoc = await getDoc(userRef)
 
-      const userEmail = result.user.email
-      const isTest = isTestUser(userEmail)
-
       if (!userDoc.exists()) {
-        // テストユーザーは自動承認、それ以外は承認待ち
         await setDoc(userRef, {
           uid: result.user.uid,
           displayName: result.user.displayName || 'ユーザー',
           photoURL: result.user.photoURL || '',
-          status: isTest ? 'approved' : 'pending',
-          isTestUser: isTest,
+          status: 'pending',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         })
-      } else if (isTest && userDoc.data()?.status !== 'approved') {
-        // 既存のテストユーザーで未承認の場合は承認
-        await setDoc(
-          userRef,
-          {
-            status: 'approved',
-            isTestUser: true,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        )
       }
     } catch (e) {
       error.value = e as Error
