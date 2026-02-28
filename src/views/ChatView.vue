@@ -169,10 +169,7 @@ async function handleHideConversation() {
       :is-open="isSidebarOpen"
       @close="closeSidebar"
       @new-conversation="handleNewConversation"
-      @invite="
-        showInvitation = true
-        closeSidebar()
-      "
+      @invite="showInvitation = true; closeSidebar()"
     >
       <template #conversations>
         <ConversationList @select="handleConversationSelect" />
