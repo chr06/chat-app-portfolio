@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { ref } from 'vue'
 import App from '../App.vue'
 
 // Firebase モック
@@ -21,6 +22,7 @@ vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
   getDoc: vi.fn(),
   setDoc: vi.fn(),
+  updateDoc: vi.fn(),
   onSnapshot: vi.fn(() => vi.fn()),
   collection: vi.fn(),
   query: vi.fn(),
@@ -28,6 +30,15 @@ vi.mock('firebase/firestore', () => ({
   getDocs: vi.fn().mockResolvedValue({ empty: false }),
   limit: vi.fn(),
   serverTimestamp: vi.fn(),
+}))
+
+const mockRoute = { query: ref({}) }
+const mockRouter = { push: vi.fn(), replace: vi.fn() }
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute,
+  useRouter: () => mockRouter,
+  RouterView: { template: '<div />' },
 }))
 
 describe('App', () => {

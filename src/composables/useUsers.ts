@@ -8,8 +8,7 @@ export function useUsers() {
   const searchError = ref<Error | null>(null)
 
   /**
-   * 表示名でテストユーザーを検索（前方一致）
-   * ポートフォリオ用に、テストユーザーのみが検索対象
+   * 表示名でユーザーを検索（テストユーザー + 同ワークスペースユーザー）
    * 自分自身は除外
    */
   async function searchUsersByDisplayName(name: string): Promise<User[]> {
@@ -19,12 +18,10 @@ export function useUsers() {
     searchError.value = null
 
     try {
-      // テストユーザー全員を取得してクライアント側でフィルタリング
-      // （Firestoreの複合クエリ制限を回避するため）
-      const allTestUsers = await getApprovedUsers()
+      const allVisibleUsers = await getApprovedUsers()
 
       const searchTerm = name.trim().toLowerCase()
-      const filtered = allTestUsers.filter((user) =>
+      const filtered = allVisibleUsers.filter((user) =>
         user.displayName.toLowerCase().includes(searchTerm),
       )
 
@@ -39,8 +36,8 @@ export function useUsers() {
   }
 
   /**
-   * テストユーザー一覧を取得
-   * ポートフォリオ用に、テストユーザーのみが表示される
+   * 表示可能なユーザー一覧を取得
+   * テストユーザー + 同ワークスペースの承認済みユーザー
    * 自分自身は除外
    */
   async function getApprovedUsers(): Promise<User[]> {
@@ -48,23 +45,44 @@ export function useUsers() {
     searchError.value = null
 
     try {
+      const currentUser = auth.currentUser
+      if (!currentUser) return []
+
+      // NOTE: テストユーザーを取得
       const usersRef = collection(db, 'users')
-      // isTestUserのみでクエリし、残りはクライアント側でフィルタ
-      // （複合インデックスなしで動作させるため）
-      const q = query(usersRef, where('isTestUser', '==', true))
+      const testQuery = query(usersRef, where('isTestUser', '==', true))
+      const testSnapshot = await getDocs(testQuery)
+      const testUsers = testSnapshot.docs.map((d) => ({ uid: d.id, ...d.data() }) as User)
 
-      const snapshot = await getDocs(q)
+      // NOTE: 現在のユーザーのワークスペースIDを取得
+      const currentUserDoc = await getDoc(doc(db, 'users', currentUser.uid))
+      const currentWorkspaceId = currentUserDoc.exists()
+        ? (currentUserDoc.data().workspaceId as string | undefined)
+        : undefined
 
-      const allUsers = snapshot.docs.map((doc) => {
-        const data = doc.data()
-        return { uid: doc.id, ...data } as User
-      })
+      // NOTE: 同ワークスペースの承認済みユーザーを取得
+      let workspaceUsers: User[] = []
+      if (currentWorkspaceId) {
+        const wsQuery = query(
+          usersRef,
+          where('workspaceId', '==', currentWorkspaceId),
+          where('status', '==', 'approved'),
+        )
+        const wsSnapshot = await getDocs(wsQuery)
+        workspaceUsers = wsSnapshot.docs.map((d) => ({ uid: d.id, ...d.data() }) as User)
+      }
 
-      const users = allUsers
-        .filter((user) => user.status === 'approved' && user.uid !== auth.currentUser?.uid)
-        .sort((a, b) => a.displayName.localeCompare(b.displayName, 'ja'))
+      // NOTE: 重複排除して結合、自分を除外
+      const allUsersMap = new Map<string, User>()
+      for (const user of [...testUsers, ...workspaceUsers]) {
+        if (user.uid !== currentUser.uid) {
+          allUsersMap.set(user.uid, user)
+        }
+      }
 
-      return users
+      return Array.from(allUsersMap.values()).sort((a, b) =>
+        a.displayName.localeCompare(b.displayName, 'ja'),
+      )
     } catch (e) {
       searchError.value = e as Error
       console.error('[useUsers] エラー:', e)

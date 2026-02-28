@@ -48,37 +48,49 @@ describe('useUsers', () => {
     })
 
     it('検索語でフィルタリングする', async () => {
-      mockGetDocs.mockResolvedValue(
-        createMockQuerySnapshot([
-          {
-            id: 'user-1',
-            data: {
-              displayName: 'テストユーザー1',
-              photoURL: 'https://example.com/1.jpg',
-              status: 'approved',
-              isTestUser: true,
-            },
-          },
-          {
-            id: 'user-2',
-            data: {
-              displayName: 'テストユーザー2',
-              photoURL: 'https://example.com/2.jpg',
-              status: 'approved',
-              isTestUser: true,
-            },
-          },
-          {
-            id: 'user-3',
-            data: {
-              displayName: '別のユーザー',
-              photoURL: 'https://example.com/3.jpg',
-              status: 'approved',
-              isTestUser: true,
-            },
-          },
-        ]),
+      // 現在のユーザーのワークスペースID取得
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          workspaceId: 'WS-001',
+          status: 'approved',
+        }),
       )
+
+      // 1回目: テストユーザークエリ, 2回目: ワークスペースユーザークエリ
+      mockGetDocs
+        .mockResolvedValueOnce(
+          createMockQuerySnapshot([
+            {
+              id: 'user-1',
+              data: {
+                displayName: 'テストユーザー1',
+                photoURL: 'https://example.com/1.jpg',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+            {
+              id: 'user-2',
+              data: {
+                displayName: 'テストユーザー2',
+                photoURL: 'https://example.com/2.jpg',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+            {
+              id: 'user-3',
+              data: {
+                displayName: '別のユーザー',
+                photoURL: 'https://example.com/3.jpg',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(createMockQuerySnapshot([]))
 
       const { searchUsersByDisplayName } = await loadUseUsers()
       const result = await searchUsersByDisplayName('テスト')
@@ -89,6 +101,13 @@ describe('useUsers', () => {
     })
 
     it('エラー時は空配列を返す', async () => {
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          workspaceId: 'WS-001',
+          status: 'approved',
+        }),
+      )
       mockGetDocs.mockRejectedValue(new Error('Firestore error'))
 
       const { searchUsersByDisplayName, searchError } = await loadUseUsers()
@@ -100,33 +119,156 @@ describe('useUsers', () => {
   })
 
   describe('getApprovedUsers', () => {
-    it('承認済みテストユーザーを取得し、自分を除外する', async () => {
-      mockGetDocs.mockResolvedValue(
+    it('テストユーザーを取得し、自分を除外する', async () => {
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          workspaceId: 'WS-001',
+          status: 'approved',
+        }),
+      )
+
+      mockGetDocs
+        .mockResolvedValueOnce(
+          createMockQuerySnapshot([
+            {
+              id: 'current-uid',
+              data: {
+                displayName: '自分',
+                photoURL: '',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+            {
+              id: 'user-2',
+              data: {
+                displayName: 'ユーザー2',
+                photoURL: '',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(createMockQuerySnapshot([]))
+
+      const { getApprovedUsers } = await loadUseUsers()
+      const result = await getApprovedUsers()
+
+      // 自分(current-uid) は除外
+      expect(result).toHaveLength(1)
+      expect(result[0]!.uid).toBe('user-2')
+    })
+
+    it('テストユーザーと同ワークスペースのユーザーを結合する', async () => {
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          workspaceId: 'WS-001',
+          status: 'approved',
+        }),
+      )
+
+      // 1回目: テストユーザー
+      mockGetDocs
+        .mockResolvedValueOnce(
+          createMockQuerySnapshot([
+            {
+              id: 'test-user-1',
+              data: {
+                displayName: 'テストユーザー1',
+                photoURL: '',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+          ]),
+        )
+        // 2回目: 同ワークスペースユーザー
+        .mockResolvedValueOnce(
+          createMockQuerySnapshot([
+            {
+              id: 'ws-user-1',
+              data: {
+                displayName: 'ワークスペースユーザー1',
+                photoURL: '',
+                status: 'approved',
+                workspaceId: 'WS-001',
+              },
+            },
+          ]),
+        )
+
+      const { getApprovedUsers } = await loadUseUsers()
+      const result = await getApprovedUsers()
+
+      expect(result).toHaveLength(2)
+      const names = result.map((u) => u.displayName)
+      expect(names).toContain('テストユーザー1')
+      expect(names).toContain('ワークスペースユーザー1')
+    })
+
+    it('テストユーザーとワークスペースユーザーの重複を排除する', async () => {
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          workspaceId: 'WS-001',
+          status: 'approved',
+        }),
+      )
+
+      mockGetDocs
+        .mockResolvedValueOnce(
+          createMockQuerySnapshot([
+            {
+              id: 'user-1',
+              data: {
+                displayName: 'ユーザー1',
+                photoURL: '',
+                status: 'approved',
+                isTestUser: true,
+              },
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(
+          createMockQuerySnapshot([
+            {
+              id: 'user-1',
+              data: {
+                displayName: 'ユーザー1',
+                photoURL: '',
+                status: 'approved',
+                workspaceId: 'WS-001',
+              },
+            },
+          ]),
+        )
+
+      const { getApprovedUsers } = await loadUseUsers()
+      const result = await getApprovedUsers()
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('ワークスペースIDがない場合はテストユーザーのみ返す', async () => {
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          status: 'approved',
+          // workspaceId なし
+        }),
+      )
+
+      mockGetDocs.mockResolvedValueOnce(
         createMockQuerySnapshot([
           {
-            id: 'current-uid',
+            id: 'test-user-1',
             data: {
-              displayName: '自分',
+              displayName: 'テストユーザー1',
               photoURL: '',
               status: 'approved',
-              isTestUser: true,
-            },
-          },
-          {
-            id: 'user-2',
-            data: {
-              displayName: 'ユーザー2',
-              photoURL: '',
-              status: 'approved',
-              isTestUser: true,
-            },
-          },
-          {
-            id: 'user-3',
-            data: {
-              displayName: 'ユーザー3',
-              photoURL: '',
-              status: 'pending',
               isTestUser: true,
             },
           },
@@ -136,12 +278,34 @@ describe('useUsers', () => {
       const { getApprovedUsers } = await loadUseUsers()
       const result = await getApprovedUsers()
 
-      // 自分(current-uid)と pending(user-3) は除外
       expect(result).toHaveLength(1)
-      expect(result[0]!.uid).toBe('user-2')
+      expect(result[0]!.displayName).toBe('テストユーザー1')
+      // ワークスペースクエリは実行されない
+      expect(mockGetDocs).toHaveBeenCalledTimes(1)
+    })
+
+    it('未ログイン時は空配列を返す', async () => {
+      const config = await import('@/firebase/config')
+      const originalUser = config.auth.currentUser
+      ;(config.auth as { currentUser: null }).currentUser = null
+
+      const { getApprovedUsers } = await loadUseUsers()
+      const result = await getApprovedUsers()
+
+      expect(result).toEqual([])
+
+      ;(config.auth as { currentUser: typeof originalUser }).currentUser = originalUser
     })
 
     it('isSearching が正しく切り替わる', async () => {
+      mockGetDoc.mockResolvedValue(
+        createMockDocumentSnapshot('current-uid', {
+          uid: 'current-uid',
+          workspaceId: 'WS-001',
+          status: 'approved',
+        }),
+      )
+
       let resolveGetDocs: (value: unknown) => void
       mockGetDocs.mockReturnValue(
         new Promise((resolve) => {

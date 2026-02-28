@@ -11,6 +11,7 @@ const mockSignInWithPopup = vi.fn()
 const mockSignOut = vi.fn()
 const mockGetDoc = vi.fn()
 const mockSetDoc = vi.fn()
+const mockUpdateDoc = vi.fn()
 const { mock: mockOnSnapshot, triggerSnapshot } = createMockOnSnapshot()
 
 vi.mock('firebase/auth', () => ({
@@ -24,6 +25,7 @@ vi.mock('firebase/firestore', () => ({
   doc: vi.fn(() => 'mock-doc-ref'),
   getDoc: (...args: unknown[]) => mockGetDoc(...(args as [])),
   setDoc: (...args: unknown[]) => mockSetDoc(...(args as [])),
+  updateDoc: (...args: unknown[]) => mockUpdateDoc(...(args as [])),
   onSnapshot: (...args: unknown[]) => mockOnSnapshot(...(args as [])),
   serverTimestamp: vi.fn(() => 'mock-server-timestamp'),
 }))
@@ -37,6 +39,7 @@ describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    mockUpdateDoc.mockResolvedValue(undefined)
   })
 
   async function loadUseAuth() {
@@ -83,6 +86,7 @@ describe('useAuth', () => {
       displayName: 'テストユーザー',
       photoURL: 'https://example.com/photo.jpg',
       status: 'approved',
+      workspaceId: 'WS123456',
     }
 
     mockOnAuthStateChanged.mockImplementation((_authInstance: unknown, callback: Function) => {
@@ -147,12 +151,15 @@ describe('useAuth', () => {
     expect(mockSignInWithPopup).toHaveBeenCalledOnce()
     expect(mockSetDoc).toHaveBeenCalledOnce()
 
-    // 新規ユーザーは承認待ち状態で作成される
+    // 新規ユーザーは承認待ち状態で作成され、ワークスペースIDが自動生成される
     const setDocCall = mockSetDoc.mock.calls[0]!
     expect(setDocCall[1]).toMatchObject({
       uid: 'test-uid-1',
       status: 'pending',
     })
+    expect(setDocCall[1].workspaceId).toBeDefined()
+    expect(typeof setDocCall[1].workspaceId).toBe('string')
+    expect(setDocCall[1].workspaceId.length).toBe(8)
   })
 
   it('signInWithGoogle が既存ユーザーの場合はドキュメントを作成しない', async () => {
@@ -200,14 +207,51 @@ describe('useAuth', () => {
     auth.init()
 
     // pending 状態
-    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'pending' }))
+    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'pending', workspaceId: 'WS1' }))
     expect(auth.isPending.value).toBe(true)
     expect(auth.isApproved.value).toBe(false)
 
     // approved 状態
-    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'approved' }))
+    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'approved', workspaceId: 'WS1' }))
     expect(auth.isPending.value).toBe(false)
     expect(auth.isApproved.value).toBe(true)
+  })
+
+  it('workspaceId が未設定の場合、自動生成して updateDoc を呼ぶ', async () => {
+    const mockUser = createMockFirebaseUser()
+
+    mockOnAuthStateChanged.mockImplementation((_authInstance: unknown, callback: Function) => {
+      callback(mockUser)
+      return vi.fn()
+    })
+
+    const auth = await loadUseAuth()
+    auth.init()
+
+    // workspaceId なしのプロフィール
+    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'approved' }))
+
+    expect(mockUpdateDoc).toHaveBeenCalledOnce()
+    const updateCall = mockUpdateDoc.mock.calls[0]!
+    expect(typeof updateCall[1].workspaceId).toBe('string')
+    expect(updateCall[1].workspaceId.length).toBe(8)
+  })
+
+  it('workspaceId が設定済みの場合、updateDoc を呼ばない', async () => {
+    const mockUser = createMockFirebaseUser()
+
+    mockOnAuthStateChanged.mockImplementation((_authInstance: unknown, callback: Function) => {
+      callback(mockUser)
+      return vi.fn()
+    })
+
+    const auth = await loadUseAuth()
+    auth.init()
+
+    // workspaceId ありのプロフィール
+    triggerSnapshot(createMockDocumentSnapshot('test-uid-1', { status: 'approved', workspaceId: 'EXISTING' }))
+
+    expect(mockUpdateDoc).not.toHaveBeenCalled()
   })
 
   it('cleanup がリスナーを解除する', async () => {

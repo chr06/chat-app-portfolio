@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
     isPending,
     init,
     signInWithGoogle,
+    refreshProfile,
     signOut,
     cleanup,
   } = useAuth()
@@ -31,6 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
     // メソッド
     init,
     signInWithGoogle,
+    refreshProfile,
     signOut,
     cleanup,
   }

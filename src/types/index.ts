@@ -12,6 +12,8 @@ export interface User {
   photoURL: string
   status: UserStatus
   isTestUser?: boolean // シードされたテストユーザーかどうか
+  invitedBy?: string // 招待元ユーザーのUID
+  workspaceId?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -60,6 +62,17 @@ export interface Message {
   imagePath?: string
   reactions: Reactions
   createdAt: Timestamp
+}
+
+export type InvitationStatus = 'pending' | 'accepted'
+
+export interface Invitation {
+  code: string
+  inviterUid: string // 招待作成者のUID
+  inviteeUid: string | null // 招待受諾者のUID（受諾前はnull）
+  status: InvitationStatus
+  createdAt: Timestamp
+  acceptedAt: Timestamp | null
 }
 
 // Firestoreドキュメントから取得したデータにIDを付与するユーティリティ型

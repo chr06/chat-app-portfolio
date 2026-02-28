@@ -48,6 +48,7 @@ ChatVue（仮称）
 - [ ] Googleアカウントでのログイン
 - [ ] 新規ユーザーは「承認待ち」状態で登録
 - [ ] 管理者がFirestoreで手動承認（status: 'approved'）
+- [ ] 招待リンク経由でログインした場合は自動承認（status: 'approved'）
 - [ ] 承認済みユーザーのみチャット画面にアクセス可能
 - [ ] 未承認ユーザーには承認待ち画面を表示
 
@@ -55,6 +56,13 @@ ChatVue（仮称）
 - [ ] ユーザープロフィール表示（名前・アイコン）
 - [ ] 表示名の編集機能
 - [ ] ユーザー検索（表示名で検索 + 一覧から選択）
+- [ ] 参照可能なユーザー = 同じワークスペースのユーザー + テストユーザー
+
+### 2.5. 招待・ワークスペース機能
+- [ ] 承認済みユーザーが招待リンクを生成・コピー
+- [ ] 招待リンク経由のログインで招待者のワークスペースに自動参加
+- [ ] 招待なしでログインした場合は新しいワークスペースが自動作成
+- [ ] 既存ユーザーにworkspaceIdが未設定の場合、ログイン時に自動生成
 
 ### 3. ダイレクトメッセージ（DM）
 - [ ] 1対1のプライベートチャット
@@ -77,6 +85,7 @@ ChatVue（仮称）
 ### セキュリティ考慮事項
 - メールアドレスはFirestoreに保存せず、Firebase Authenticationでのみ管理
 - ユーザー検索は表示名ベースで実装（プライバシー保護）
+- 招待コードは8文字英数字（読み間違いやすい文字 O/0/I/1/l を除外）
 
 ### 6. レスポンシブ対応
 - [ ] PC対応（1024px以上）
@@ -108,10 +117,26 @@ interface User {
   displayName: string            // 表示名
   photoURL: string               // プロフィール画像URL
   status: 'pending' | 'approved' | 'rejected'  // 承認状態
+  isTestUser?: boolean           // テストユーザーフラグ（シード生成時のみ）
+  invitedBy?: string             // 招待元ユーザーのUID
+  workspaceId?: string           // 所属ワークスペースのID（自動生成 or 招待元から引き継ぎ）
   createdAt: Timestamp           // 作成日時
   updatedAt: Timestamp           // 更新日時
 }
 // emailはFirebase Authentication（auth.currentUser.email）から取得
+
+// ============================================
+// invitations コレクション
+// ============================================
+// パス: invitations/{code}
+interface Invitation {
+  code: string                   // 8文字英数字コード（ドキュメントIDと同一）
+  inviterUid: string             // 招待を作成したユーザーのUID
+  inviteeUid: string | null      // 招待を受諾したユーザーのUID（未受諾時はnull）
+  status: 'pending' | 'accepted' // 招待の状態
+  createdAt: Timestamp           // 作成日時
+  acceptedAt: Timestamp | null   // 受諾日時（未受諾時はnull）
+}
 
 // ============================================
 // conversations コレクション
@@ -165,6 +190,30 @@ interface Message {
         { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "workspaceId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviterUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviteeUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ]
 }
@@ -204,18 +253,47 @@ service cloud.firestore {
     // users コレクション
     // ============================================
     match /users/{userId} {
-      // 読み取り: 承認済みユーザーのみ
-      allow read: if isApproved();
+      // 読み取り: 認証済みユーザーは全ユーザーを読める
+      allow read: if isAuthenticated();
 
-      // 作成: 認証済みで自分のドキュメントのみ
+      // 作成: 認証済みで自分のドキュメント、またはテストユーザー
       allow create: if isAuthenticated() &&
-                      request.auth.uid == userId &&
-                      request.resource.data.status == 'pending';
+                      (request.auth.uid == userId || userId.matches('test_user_[0-9]+'));
 
-      // 更新: 承認済みで自分のドキュメントのみ（statusは変更不可）
-      allow update: if isApproved() &&
+      // 更新: 自分のドキュメントのみ
+      // statusの変更は招待経由の自動承認（pending→approved かつ invitedByが設定される場合）のみ許可
+      allow update: if isAuthenticated() &&
                       request.auth.uid == userId &&
-                      request.resource.data.status == resource.data.status;
+                      (
+                        request.resource.data.status == resource.data.status ||
+                        (
+                          resource.data.status == 'pending' &&
+                          request.resource.data.status == 'approved' &&
+                          request.resource.data.invitedBy is string &&
+                          request.resource.data.workspaceId is string
+                        )
+                      );
+    }
+
+    // ============================================
+    // invitations コレクション
+    // ============================================
+    match /invitations/{code} {
+      // 読み取り: 認証済みユーザーは招待を読める
+      allow read: if isAuthenticated();
+
+      // 作成: 承認済みユーザーのみ招待を作成可能
+      allow create: if isApproved() &&
+                      request.resource.data.inviterUid == request.auth.uid &&
+                      request.resource.data.status == 'pending' &&
+                      request.resource.data.inviteeUid == null;
+
+      // 更新: 認証済みユーザーが招待を受諾可能
+      allow update: if isAuthenticated() &&
+                      resource.data.status == 'pending' &&
+                      request.resource.data.status == 'accepted' &&
+                      request.resource.data.inviteeUid == request.auth.uid &&
+                      request.resource.data.inviterUid == resource.data.inviterUid;
     }
 
     // ============================================
@@ -452,7 +530,8 @@ chat-app-portfolio/
 │   │   │   └── EmojiPicker.vue        # 絵文字ピッカー
 │   │   ├── user/
 │   │   │   ├── UserSearch.vue         # ユーザー検索
-│   │   │   └── UserProfile.vue        # プロフィール編集
+│   │   │   ├── UserProfile.vue        # プロフィール編集
+│   │   │   └── InvitationModal.vue    # 招待リンク生成モーダル
 │   │   └── layout/
 │   │       ├── AppHeader.vue          # ヘッダー
 │   │       └── Sidebar.vue            # サイドバー
@@ -461,6 +540,8 @@ chat-app-portfolio/
 │   │   ├── useConversations.ts        # 会話管理
 │   │   ├── useMessages.ts             # メッセージ管理
 │   │   ├── useUsers.ts                # ユーザー管理
+│   │   ├── useInvitations.ts          # 招待コード管理
+│   │   ├── useSeedData.ts             # テストデータシード
 │   │   └── useImageUpload.ts          # 画像アップロード
 │   ├── types/
 │   │   └── index.ts                   # 型定義
@@ -477,7 +558,8 @@ chat-app-portfolio/
 │   ├── App.vue                        # ルートコンポーネント
 │   └── main.ts                        # エントリーポイント
 ├── docs/
-│   └── requirements.md                # 要件定義書（本ファイル）
+│   ├── requirements.md                # 要件定義書（本ファイル）
+│   └── firestore-schema.md            # Firestoreスキーマ定義
 ├── .env.local                         # 環境変数（Firebase設定）※gitignore
 ├── .env.example                       # 環境変数サンプル
 ├── .firebaserc                        # Firebaseプロジェクト設定
@@ -605,9 +687,11 @@ chat-app-portfolio/
 ## 📝 備考
 
 ### 制約事項
-- 利用者は申請制で管理者が承認したユーザーのみ
+- 利用者は招待制（招待リンク経由で自動承認）または管理者による手動承認
 - Firebase無料枠内での運用を前提
 - 管理者機能（承認作業）はFirebase Console経由で手動実施
+- ユーザーは1つのワークスペースにのみ所属
+- テストユーザーはワークスペースに依存せず全ユーザーから参照可能
 
 ### 参考リンク
 - [Firebase Documentation](https://firebase.google.com/docs)
