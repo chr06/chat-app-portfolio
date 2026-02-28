@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useInvitations } from '@/composables/useInvitations'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { acceptInvitation } = useInvitations()
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+
+const inviteCode = computed(() => route.query.invite as string | undefined)
 
 async function handleGoogleLogin() {
   isLoading.value = true
@@ -15,7 +20,18 @@ async function handleGoogleLogin() {
 
   try {
     await authStore.signInWithGoogle()
-    // リダイレクトはルーターガードが処理
+
+    // NOTE: 招待コードがある場合は受諾処理（自動承認される）
+    if (inviteCode.value) {
+      const accepted = await acceptInvitation(inviteCode.value)
+      if (accepted) {
+        await authStore.refreshProfile()
+        router.push({ name: 'chat' })
+        return
+      }
+    }
+
+    // NOTE: 招待なし or 受諾失敗の場合はストアの状態で判定
     if (authStore.isApproved) {
       router.push({ name: 'chat' })
     } else {
@@ -33,33 +49,28 @@ async function handleGoogleLogin() {
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-100 px-4">
     <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-      <!-- ロゴ/タイトル -->
       <div class="text-center mb-8">
         <h1 class="text-3xl font-bold text-slack-purple">Chat App</h1>
         <p class="mt-2 text-gray-600">Slack風チャットアプリ</p>
       </div>
 
-      <!-- 説明文 -->
-      <p class="text-center text-gray-500 mb-8">
+      <p v-if="inviteCode" class="text-center text-green-600 mb-8 font-medium">
+        招待コードでログインします
+      </p>
+      <p v-else class="text-center text-gray-500 mb-8">
         このアプリは招待制です。<br />
         ログイン後、管理者の承認をお待ちください。
       </p>
 
-      <!-- エラーメッセージ -->
-      <div
-        v-if="errorMessage"
-        class="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm"
-      >
+      <div v-if="errorMessage" class="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
         {{ errorMessage }}
       </div>
 
-      <!-- Google ログインボタン -->
       <button
         :disabled="isLoading"
         class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slack-purple disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         @click="handleGoogleLogin"
       >
-        <!-- Google アイコン -->
         <svg class="w-5 h-5" viewBox="0 0 24 24">
           <path
             fill="#4285F4"

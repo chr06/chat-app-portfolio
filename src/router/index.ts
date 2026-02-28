@@ -60,7 +60,6 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   const isAuthenticated = authStore.isAuthenticated
-  const isApproved = authStore.isApproved
 
   // 認証が必要なページ
   if (to.meta.requiresAuth && !isAuthenticated) {
@@ -68,21 +67,23 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   // 承認が必要なページ
-  if (to.meta.requiresApproval && !isApproved) {
+  if (to.meta.requiresApproval && !authStore.isApproved) {
     return next({ name: 'pending' })
   }
 
   // ゲスト専用ページ（認証済みならリダイレクト）
+  // 招待コードがある場合はクエリパラメータを引き継ぐ
   if (to.meta.guestOnly && isAuthenticated) {
-    if (isApproved) {
-      return next({ name: 'chat' })
+    const query = to.query.invite ? { invite: to.query.invite } : undefined
+    if (authStore.isApproved) {
+      return next({ name: 'chat', query })
     } else {
-      return next({ name: 'pending' })
+      return next({ name: 'pending', query })
     }
   }
 
   // 承認待ちページに承認済みユーザーがアクセス
-  if (to.name === 'pending' && isApproved) {
+  if (to.name === 'pending' && authStore.isApproved) {
     return next({ name: 'chat' })
   }
 

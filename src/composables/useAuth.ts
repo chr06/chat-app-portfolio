@@ -6,9 +6,23 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser,
 } from 'firebase/auth'
-import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '@/firebase/config'
 import type { User } from '@/types'
+
+// NOTE: ワークスペースID生成用の文字セット（読み間違いやすい文字を除外）
+const WS_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const WS_ID_LENGTH = 8
+
+function generateWorkspaceId(): string {
+  const array = new Uint8Array(WS_ID_LENGTH)
+  crypto.getRandomValues(array)
+  let id = ''
+  for (let i = 0; i < WS_ID_LENGTH; i++) {
+    id += WS_CHARS[array[i]! % WS_CHARS.length]
+  }
+  return id
+}
 
 export function useAuth() {
   const firebaseUser = ref<FirebaseUser | null>(null)
@@ -38,10 +52,21 @@ export function useAuth() {
           userRef,
           (snapshot) => {
             if (snapshot.exists()) {
+              const data = snapshot.data()
               userProfile.value = {
                 uid: snapshot.id,
-                ...snapshot.data(),
+                ...data,
               } as User
+
+              // Note: 既存ユーザーにworkspaceIdが未設定の場合、自動生成して設定 （既存ユーザーの後方互換対応）
+              if (!data.workspaceId) {
+                updateDoc(userRef, {
+                  workspaceId: generateWorkspaceId(),
+                  updatedAt: serverTimestamp(),
+                }).catch((err) => {
+                  console.error('Failed to auto-assign workspaceId:', err)
+                })
+              }
             } else {
               userProfile.value = null
             }
@@ -74,6 +99,7 @@ export function useAuth() {
           displayName: result.user.displayName || 'ユーザー',
           photoURL: result.user.photoURL || '',
           status: 'pending',
+          workspaceId: generateWorkspaceId(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         })
@@ -81,6 +107,18 @@ export function useAuth() {
     } catch (e) {
       error.value = e as Error
       throw e
+    }
+  }
+
+  // Note: Firestoreからプロフィールを再取得してストアを即座に更新 （招待受諾後の状態反映用）
+  async function refreshProfile() {
+    const currentUser = auth.currentUser
+    if (!currentUser) return
+
+    const userRef = doc(db, 'users', currentUser.uid)
+    const snapshot = await getDoc(userRef)
+    if (snapshot.exists()) {
+      userProfile.value = { uid: snapshot.id, ...snapshot.data() } as User
     }
   }
 
@@ -108,6 +146,7 @@ export function useAuth() {
     isPending,
     init,
     signInWithGoogle,
+    refreshProfile,
     signOut,
     cleanup,
   }
